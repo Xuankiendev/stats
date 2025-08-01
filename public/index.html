@@ -1,69 +1,88 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <title>Live Request Tracker</title>
-    <script src="https://code.highcharts.com/highcharts.js"></script>
-    <style>
-      body {
-        margin: 0;
-        padding: 20px;
-        background-color: #121212;
-        color: #fff;
-        font-family: "Segoe UI", sans-serif;
-      }
-      #chart-container {
-        width: 100%;
-        height: 400px;
-        margin-top: 20px;
-      }
-      h2 {
-        font-size: 24px;
-        margin-bottom: 10px;
-        color: #4fc3f7;
-      }
-    </style>
-  </head>
-  <body>
-    <h2 id="header">Capturing requests from <span id="domain"></span>/api/request-count</h2>
-    <div>Total Requests: <span id="total">0</span></div>
-    <div id="chart-container"></div>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Live Request Stats</title>
+  <script src="https://code.highcharts.com/highcharts.js"></script>
+  <style>
+    body {
+      background-color: #0f0f0f;
+      color: #ffffff;
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 0 1rem;
+    }
 
-    <script>
-      async function loadData() {
-        const domain = window.location.host;
-        document.getElementById("domain").textContent = domain;
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 0.5rem;
+      color: #00ff88;
+    }
 
-        const res = await fetch("/api/request-count");
-        const json = await res.json();
+    p {
+      margin-top: 0;
+      font-size: 1.1rem;
+      color: #cccccc;
+    }
 
-        if (!json || !json.totalRequest || !json.data?.length) return;
+    #container {
+      width: 100%;
+      max-width: 800px;
+      height: 400px;
+      margin-top: 2rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>🔍 Request Monitor</h1>
+  <p id="total"></p>
+  <div id="container"></div>
+  <script>
+    async function fetchData() {
+      const res = await fetch("/api/request-count");
+      const json = await res.json();
+      const { totalRequest, data } = json;
+      if (!Array.isArray(data) || !totalRequest) return;
 
-        document.getElementById("total").textContent = json.totalRequest;
+      document.getElementById("total").innerText = `Capturing requests from ${location.origin}/api/request-count — Total: ${totalRequest}`;
 
-        Highcharts.chart("chart-container", {
-          chart: { type: "line", backgroundColor: "#1e1e1e" },
-          title: { text: "Real-Time Request Graph", style: { color: "#fff" } },
-          xAxis: {
-            type: "datetime",
-            title: { text: "Timestamp" },
-            labels: { style: { color: "#ccc" } }
-          },
-          yAxis: {
-            title: { text: "Requests" },
-            labels: { style: { color: "#ccc" } }
-          },
-          series: [{
-            name: "Requests per second",
-            data: json.data,
-            color: "#4fc3f7"
-          }],
-          legend: { enabled: false },
-          credits: { enabled: false }
-        });
-      }
+      Highcharts.chart("container", {
+        chart: {
+          type: "spline",
+          backgroundColor: "#1a1a1a"
+        },
+        title: {
+          text: "Request Timeline",
+          style: { color: "#ffffff" }
+        },
+        xAxis: {
+          type: "datetime",
+          title: { text: "Time", style: { color: "#cccccc" } },
+          labels: { style: { color: "#aaaaaa" } }
+        },
+        yAxis: {
+          title: { text: "Requests", style: { color: "#cccccc" } },
+          labels: { style: { color: "#aaaaaa" } },
+          allowDecimals: false
+        },
+        legend: { enabled: false },
+        credits: { enabled: false },
+        series: [{
+          data: data,
+          color: "#00ff88",
+          marker: { enabled: false }
+        }]
+      });
+    }
 
-      loadData();
-      setInterval(loadData, 5000);
-    </script>
-  </body>
+    fetchData();
+    setInterval(fetchData, 3000);
+  </script>
+</body>
 </html>

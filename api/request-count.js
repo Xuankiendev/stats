@@ -2,45 +2,53 @@ import { Pool } from 'pg';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
+  ssl: { rejectUnauthorized: false },
+  max: 2,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000,
 });
 
-let isTableEnsured = false;
-
-async function ensureTable() {
-  if (isTableEnsured) return;
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS requests (
-      id SERIAL PRIMARY KEY,
-      timestamp BIGINT NOT NULL
-    );
-  `);
-  isTableEnsured = true;
-}
-
 export default async function handler(req, res) {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  
   try {
-    await ensureTable();
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS request_stats (
+        id SERIAL PRIMARY KEY,
+        total INTEGER NOT NULL DEFAULT 0
+      );
+    `);
 
-    const timestamp = Date.now();
-    await pool.query('INSERT INTO requests (timestamp) VALUES ($1)', [timestamp]);
+    const existingCount = await pool.query(`SELECT COUNT(*) as count FROM stats`);
+    const oldTotal = parseInt(existingCount.rows[0]?.count) || 0;
 
-    const { rows } = await pool.query('SELECT timestamp FROM requests');
-    if (!rows.length) return res.status(200).json({});
-
-    const grouped = {};
-    for (const { timestamp } of rows) {
-      const sec = Math.floor(timestamp / 1000) * 1000;
-      grouped[sec] = (grouped[sec] || 0) + 1;
+    if (req.method === 'POST') {
+      await pool.query(`
+        INSERT INTO request_stats (id, total) VALUES (1, $1)
+        ON CONFLICT (id) DO UPDATE SET total = request_stats.total + 1;
+      `, [oldTotal + 1]);
+      
+      return res.status(200).json({ success: true });
     }
 
-    const data = Object.entries(grouped).map(([ts, count]) => [Number(ts), count]);
+    if (req.method === 'GET') {
+      const result = await pool.query(`
+        SELECT total FROM request_stats WHERE id = 1 LIMIT 1;
+      `);
+      
+      const total = result.rows[0]?.total || 0;
+      
+      await pool.query(`
+        INSERT INTO request_stats (id, total) VALUES (1, $1)
+        ON CONFLICT (id) DO UPDATE SET total = $1;
+      `, [total + 1]);
+      
+      return res.status(200).json({ total: total + 1 });
+    }
 
-    res.status(200).json({
-      totalRequest: rows.length,
-      data: data.sort((a, b) => a[0] - b[0])
-    });
-  } catch (err) {
-    res.status(500).json({ error: 'Internal Server Error' });
+    res.status(405).json({ error: 'Method not allowed' });
+  } catch (error) {
+    console.error('Database error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 }

@@ -1,142 +1,69 @@
-<!DOCTYPE html><html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Github Dstat - Request Counter</title>
-  <script src="https://code.highcharts.com/highcharts.js"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron&display=swap" rel="stylesheet">
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      background: #0d0d0d;
-      font-family: 'Orbitron', sans-serif;
-      color: white;
-      text-align: center;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      position: relative;
-    }
-    .container {
-      background: #111;
-      padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0 0 15px rgba(255, 0, 0, 0.5);
-      width: 90%;
-      max-width: 700px;
-      position: relative;
-      z-index: 2;
-    }
-    .button-group {
-      display: flex;
-      justify-content: center;
-      gap: 10px;
-      margin-bottom: 20px;
-    }
-    .btn {
-      padding: 10px 15px;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      font-size: 1em;
-      font-weight: bold;
-      transition: 0.3s;
-    }
-    .btn.red { background: #d10000; color: white; }
-    .btn.blue { background: #007bff; color: white; }
-    .btn.gray { background: #444; color: white; }
-    .btn:hover { opacity: 0.8; }
-    .title {
-      font-size: 1.5em;
-      font-weight: bold;
-      margin-bottom: 10px;
-    }
-    .subtitle {
-      font-size: 0.9em;
-      color: #bbb;
-      margin-bottom: 15px;
-    }
-    #chart-container {
-      width: 100%;
-      height: 350px;
-    }
-    .watermark {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      font-size: 3em;
-      font-weight: bold;
-      color: rgba(255, 255, 255, 0.1);
-      z-index: 1;
-      user-select: none;
-      pointer-events: none;
-    }
-  </style>
-</head>
-<body>
-  <div class="watermark">NEFILYDSTAT</div>
-  <div class="container">
-    <div class="title">Varcel Dstat Request count Check</div>
-    <div class="subtitle" id="api-url"></div>
-    <div class="button-group">
-      <button class="btn red" onclick="copyToClipboard()">Copy URL</button>
-      <a class="btn blue" id="whois-link" target="_blank">WHOIS</a>
-      <a class="btn gray" id="http-link" target="_blank">HTTP-CHECK</a>
-    </div>
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Live Request Tracker</title>
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <style>
+      body {
+        margin: 0;
+        padding: 20px;
+        background-color: #121212;
+        color: #fff;
+        font-family: "Segoe UI", sans-serif;
+      }
+      #chart-container {
+        width: 100%;
+        height: 400px;
+        margin-top: 20px;
+      }
+      h2 {
+        font-size: 24px;
+        margin-bottom: 10px;
+        color: #4fc3f7;
+      }
+    </style>
+  </head>
+  <body>
+    <h2 id="header">Capturing requests from <span id="domain"></span>/api/request-count</h2>
+    <div>Total Requests: <span id="total">0</span></div>
     <div id="chart-container"></div>
-  </div>
-  <script>
-    const origin = location.origin + "/api/request-count"
-    document.getElementById("api-url").textContent = origin
-    document.getElementById("whois-link").href = "https://check-host.net/check-http?host=" + origin
-    document.getElementById("http-link").href = "https://check-host.net/check-http?host=" + origin
 
-    function copyToClipboard() {
-      navigator.clipboard.writeText(origin).then(() => alert("URL copied to clipboard!"))
-    }
+    <script>
+      async function loadData() {
+        const domain = window.location.host;
+        document.getElementById("domain").textContent = domain;
 
-    document.addEventListener("DOMContentLoaded", function () {
-      const chart = Highcharts.chart('chart-container', {
-        chart: {
-          type: 'area',
-          backgroundColor: 'transparent',
-          animation: Highcharts.svg
-        },
-        title: { text: '', style: { color: 'white' } },
-        xAxis: {
-          type: 'datetime',
-          tickPixelInterval: 150,
-          labels: { style: { color: 'white' } }
-        },
-        yAxis: {
-          title: { text: 'Requests', style: { color: 'white' } },
-          min: 0,
-          labels: { style: { color: 'white' } },
-          gridLineColor: 'rgba(255,255,255,0.2)'
-        },
-        legend: { enabled: false },
-        series: [{
-          name: 'Requests',
-          data: [],
-          color: 'red',
-          fillOpacity: 0.2,
-          marker: { enabled: false }
-        }],
-        credits: { enabled: false }
-      })
+        const res = await fetch("/api/request-count");
+        const json = await res.json();
 
-      function updateChart() {
-        fetch("/api/request-count")
-          .then(r => r.json())
-          .then(d => chart.series[0].setData(d.data))
+        if (!json || !json.totalRequest || !json.data?.length) return;
+
+        document.getElementById("total").textContent = json.totalRequest;
+
+        Highcharts.chart("chart-container", {
+          chart: { type: "line", backgroundColor: "#1e1e1e" },
+          title: { text: "Real-Time Request Graph", style: { color: "#fff" } },
+          xAxis: {
+            type: "datetime",
+            title: { text: "Timestamp" },
+            labels: { style: { color: "#ccc" } }
+          },
+          yAxis: {
+            title: { text: "Requests" },
+            labels: { style: { color: "#ccc" } }
+          },
+          series: [{
+            name: "Requests per second",
+            data: json.data,
+            color: "#4fc3f7"
+          }],
+          legend: { enabled: false },
+          credits: { enabled: false }
+        });
       }
 
-      updateChart()
-      setInterval(updateChart, 2000)
-    })
-  </script>
-</body>
+      loadData();
+      setInterval(loadData, 5000);
+    </script>
+  </body>
 </html>

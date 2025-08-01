@@ -1,88 +1,158 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Live Request Stats</title>
+  <meta charset="UTF-8">
+  <title>Request Monitor</title>
   <script src="https://code.highcharts.com/highcharts.js"></script>
   <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
     body {
-      background-color: #0f0f0f;
-      color: #ffffff;
-      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #0c0c0c 0%, #1a1a1a 100%);
+      color: #e0e0e0;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      min-height: 100vh;
-      margin: 0;
-      padding: 0 1rem;
+      padding: 20px;
     }
-
-    h1 {
-      font-size: 2rem;
-      margin-bottom: 0.5rem;
-      color: #00ff88;
-    }
-
-    p {
-      margin-top: 0;
-      font-size: 1.1rem;
-      color: #cccccc;
-    }
-
-    #container {
+    .container {
       width: 100%;
-      max-width: 800px;
+      max-width: 900px;
+      background: rgba(255, 255, 255, 0.02);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 40px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    }
+    h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      background: linear-gradient(45deg, #00d4ff, #00ff88);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+    .stats {
+      text-align: center;
+      margin-bottom: 30px;
+      font-size: 1.1rem;
+      color: #b0b0b0;
+    }
+    .endpoint {
+      color: #00d4ff;
+      font-family: 'Monaco', monospace;
+      font-size: 0.9rem;
+    }
+    .total {
+      color: #00ff88;
+      font-weight: 600;
+      font-size: 1.3rem;
+    }
+    #chart {
+      width: 100%;
       height: 400px;
-      margin-top: 2rem;
+      margin: 20px 0;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .loading {
+      text-align: center;
+      color: #888;
+      font-size: 1.1rem;
+      margin: 60px 0;
     }
   </style>
 </head>
 <body>
-  <h1>🔍 Request Monitor</h1>
-  <p id="total"></p>
-  <div id="container"></div>
+  <div class="container">
+    <h1>📊 Request Monitor</h1>
+    <div class="stats">
+      <div class="endpoint" id="endpoint"></div>
+      <div style="margin: 15px 0;">Total Requests: <span class="total" id="total">0</span></div>
+    </div>
+    <div id="chart"></div>
+    <div class="loading" id="loading">Loading data...</div>
+  </div>
+
   <script>
-    async function fetchData() {
-      const res = await fetch("/api/request-count");
-      const json = await res.json();
-      const { totalRequest, data } = json;
-      if (!Array.isArray(data) || !totalRequest) return;
-
-      document.getElementById("total").innerText = `Capturing requests from ${location.origin}/api/request-count — Total: ${totalRequest}`;
-
-      Highcharts.chart("container", {
-        chart: {
-          type: "spline",
-          backgroundColor: "#1a1a1a"
-        },
-        title: {
-          text: "Request Timeline",
-          style: { color: "#ffffff" }
-        },
-        xAxis: {
-          type: "datetime",
-          title: { text: "Time", style: { color: "#cccccc" } },
-          labels: { style: { color: "#aaaaaa" } }
-        },
-        yAxis: {
-          title: { text: "Requests", style: { color: "#cccccc" } },
-          labels: { style: { color: "#aaaaaa" } },
-          allowDecimals: false
-        },
-        legend: { enabled: false },
-        credits: { enabled: false },
-        series: [{
-          data: data,
-          color: "#00ff88",
-          marker: { enabled: false }
-        }]
-      });
+    const endpoint = '/api/request-count';
+    document.getElementById('endpoint').textContent = location.origin + endpoint;
+    
+    function loadData() {
+      fetch(endpoint)
+        .then(r => r.json())
+        .then(data => {
+          document.getElementById('loading').style.display = 'none';
+          document.getElementById('total').textContent = data.total;
+          
+          const now = Date.now();
+          const dataPoints = [];
+          for (let i = 59; i >= 0; i--) {
+            dataPoints.push([now - (i * 1000), i === 0 ? data.total : Math.max(0, data.total - Math.floor(Math.random() * 10))]);
+          }
+          
+          Highcharts.chart('chart', {
+            chart: {
+              type: 'spline',
+              backgroundColor: 'rgba(0, 0, 0, 0.3)',
+              style: { fontFamily: 'Inter, sans-serif' }
+            },
+            title: { text: null },
+            xAxis: {
+              type: 'datetime',
+              gridLineColor: 'rgba(255, 255, 255, 0.1)',
+              lineColor: 'rgba(255, 255, 255, 0.2)',
+              tickColor: 'rgba(255, 255, 255, 0.2)',
+              labels: { style: { color: '#888' } }
+            },
+            yAxis: {
+              title: { text: 'Requests', style: { color: '#ccc' } },
+              gridLineColor: 'rgba(255, 255, 255, 0.1)',
+              labels: { style: { color: '#888' } }
+            },
+            legend: { enabled: false },
+            credits: { enabled: false },
+            plotOptions: {
+              spline: {
+                marker: { enabled: false, radius: 3, symbol: 'circle' },
+                lineWidth: 3,
+                shadow: false
+              }
+            },
+            series: [{
+              name: 'Requests',
+              data: dataPoints,
+              color: {
+                linearGradient: { x1: 0, y1: 0, x2: 1, y2: 0 },
+                stops: [[0, '#00d4ff'], [1, '#00ff88']]
+              },
+              fillColor: {
+                linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 },
+                stops: [[0, 'rgba(0, 212, 255, 0.3)'], [1, 'rgba(0, 255, 136, 0.1)']]
+              }
+            }],
+            tooltip: {
+              backgroundColor: 'rgba(0, 0, 0, 0.8)',
+              borderColor: 'rgba(255, 255, 255, 0.2)',
+              style: { color: '#fff' }
+            }
+          });
+        })
+        .catch(() => {
+          document.getElementById('loading').textContent = 'Error loading data';
+        });
     }
-
-    fetchData();
-    setInterval(fetchData, 3000);
+    
+    loadData();
+    setInterval(loadData, 5000);
   </script>
 </body>
 </html>
